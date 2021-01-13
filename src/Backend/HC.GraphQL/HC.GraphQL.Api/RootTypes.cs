@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using HotChocolate;
 using HotChocolate.AspNetCore.Authorization;
+using HotChocolate.Execution;
 using HotChocolate.Subscriptions;
 using HotChocolate.Types;
 
@@ -37,14 +38,15 @@ namespace HC.GraphQL.Api
         public class Subscriptions
         {
             [SubscribeAndResolve]
-            public async Task<IAsyncEnumerable<string>> OpenSubscription([Service]ITopicEventReceiver eventReceiver)
+            [Topic("openSub")]
+            public async Task<ISourceStream<string>> OpenSubscription([Service]ITopicEventReceiver eventReceiver, CancellationToken cancellationToken)
             {
-                return await eventReceiver.SubscribeAsync<string, string>("openSub").ConfigureAwait(false);
+                return await eventReceiver.SubscribeAsync<string, string>("openSub", cancellationToken);
             }
 
             [Authorize]
             [SubscribeAndResolve]
-            public async ValueTask<IAsyncEnumerable<string>> PrivateSubscription(
+            public async Task<ISourceStream<string>> PrivateSubscription(
                 [Service]ITopicEventReceiver eventReceiver,
                 CancellationToken cancellationToken)
             {

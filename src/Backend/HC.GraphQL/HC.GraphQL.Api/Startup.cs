@@ -1,7 +1,3 @@
-using HotChocolate;
-using HotChocolate.AspNetCore;
-using HotChocolate.Execution;
-using HotChocolate.Server;
 using IdentityModel.AspNetCore.OAuth2Introspection;
 using IdentityServer4.AccessTokenValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -13,8 +9,6 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
 using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
 using static HC.GraphQL.Api.RootTypes;
 
 namespace HC.GraphQL.Api
@@ -82,25 +76,32 @@ namespace HC.GraphQL.Api
 
             services
                 .AddInMemorySubscriptions()
-                .AddGraphQL(SchemaBuilder.New()
-                    // .AddServices(_)
-                    .AddQueryType<Queries>()
-                    .AddMutationType<Mutations>()
-                    .AddSubscriptionType<Subscriptions>()
-                    .AddAuthorizeDirectiveType()
-                );
+                .AddGraphQLServer()
+                .AddQueryType<Queries>()
+                .AddMutationType<Mutations>()
+                .AddSubscriptionType<Subscriptions>()
+                .AddAuthorization()
+                .AddSocketSessionInterceptor<AuthenticationSocketInterceptor>()
+                .AddHttpRequestInterceptor((context, executor, builder, token) =>
+                {
+                    builder.TryAddProperty(nameof(HttpContext), context);
+                    builder.TryAddProperty(nameof(ClaimsPrincipal), context.User);
+                    
+                    return default;
+                });
 
-            services.AddSingleton<ISocketConnectionInterceptor<HttpContext>, AuthenticationSocketInterceptor>();
-            services.AddQueryRequestInterceptor((
-                HttpContext context,
-                IQueryRequestBuilder requestBuilder,
-                CancellationToken _) =>
-            {
-                requestBuilder.TryAddProperty(nameof(HttpContext), context);
-                requestBuilder.TryAddProperty(nameof(ClaimsPrincipal), context.GetUser());
-
-                return Task.CompletedTask;
-            });
+            // services.AddSingleton<ISocketConnectionInterceptor<HttpContext>, AuthenticationSocketInterceptor>();
+            
+            // services.AddQueryRequestInterceptor((
+            //     HttpContext context,
+            //     IQueryRequestBuilder requestBuilder,
+            //     CancellationToken _) =>
+            // {
+            //     requestBuilder.TryAddProperty(nameof(HttpContext), context);
+            //     requestBuilder.TryAddProperty(nameof(ClaimsPrincipal), context.GetUser());
+            //
+            //     return Task.CompletedTask;
+            // });
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -117,9 +118,11 @@ namespace HC.GraphQL.Api
             app.UseAuthentication();
 
             app.UseWebSockets();
-
-            app.UseGraphQL()
-                .UsePlayground();
+            
+            app.UseEndpoints(endpoints =>
+            {
+                endpoints.MapGraphQL(path: "/");
+            });
         }
     }
 }
