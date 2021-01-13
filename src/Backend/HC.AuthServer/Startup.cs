@@ -27,6 +27,14 @@ namespace HC.AuthServer
 
         public void ConfigureServices(IServiceCollection services)
         {
+            services.AddCors(options =>
+            {
+                options.AddPolicy("CorsPolicy",
+                    builder => builder.AllowAnyOrigin()
+                    .AllowAnyMethod()
+                    .AllowAnyHeader());
+            });
+
             services.AddControllersWithViews();
 
             // configures IIS out-of-proc settings (see https://github.com/aspnet/AspNetCore/issues/14882)
@@ -84,6 +92,7 @@ namespace HC.AuthServer
                 app.UseDatabaseErrorPage();
             }
 
+            app.UseCors("CorsPolicy");
             app.UseStaticFiles();
 
             app.UseRouting();
