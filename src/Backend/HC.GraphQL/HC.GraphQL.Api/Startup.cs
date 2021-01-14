@@ -8,7 +8,11 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using System;
+using System.Linq;
 using System.Security.Claims;
+using System.Threading.Tasks;
+using HotChocolate.Resolvers;
+using Microsoft.AspNetCore.Authorization;
 using static HC.GraphQL.Api.RootTypes;
 
 namespace HC.GraphQL.Api
@@ -86,9 +90,17 @@ namespace HC.GraphQL.Api
                 {
                     builder.TryAddProperty(nameof(HttpContext), context);
                     builder.TryAddProperty(nameof(ClaimsPrincipal), context.User);
-                    
+
                     return default;
                 });
+            
+            services.AddAuthorization(opts =>
+            {
+                opts.DefaultPolicy = new AuthorizationPolicyBuilder()
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new BobRequirement())
+                    .Build();
+            });
 
             // services.AddSingleton<ISocketConnectionInterceptor<HttpContext>, AuthenticationSocketInterceptor>();
             
@@ -102,6 +114,23 @@ namespace HC.GraphQL.Api
             //
             //     return Task.CompletedTask;
             // });
+        }
+        
+        public class BobRequirement : IAuthorizationRequirement { }
+
+        public class BobRequirementHandler : AuthorizationHandler<BobRequirement, IResolverContext>
+        {
+            protected override async Task HandleRequirementAsync(AuthorizationHandlerContext context, BobRequirement requirement, IResolverContext resource)
+            {
+                //sub: bbe27e7b-7061-4f9d-9225-2a6425fbeff3 == Bob
+                if (context.User.Claims?.FirstOrDefault(i => i.Type == "sub")?.Value != "bbe27e7b-7061-4f9d-9225-2a6425fbeff3")
+                {
+                    context.Fail();
+                    return;
+                }
+                
+                context.Succeed(requirement);
+            }
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
@@ -121,7 +150,7 @@ namespace HC.GraphQL.Api
             
             app.UseEndpoints(endpoints =>
             {
-                endpoints.MapGraphQL(path: "/");
+                endpoints.MapGraphQL(path: "/graphql");
             });
         }
     }

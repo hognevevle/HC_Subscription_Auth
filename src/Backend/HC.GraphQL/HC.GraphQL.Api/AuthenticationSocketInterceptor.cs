@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Authentication;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Security.Claims;
 using System.Threading;
 using HotChocolate.AspNetCore;
 using HotChocolate.AspNetCore.Subscriptions;
@@ -118,7 +119,9 @@ namespace HC.GraphQL.Api
         public async ValueTask OnRequestAsync(ISocketConnection connection, IQueryRequestBuilder requestBuilder,
             CancellationToken cancellationToken)
         {
-            //
+            requestBuilder.TrySetServices(connection.RequestServices);
+            requestBuilder.TryAddProperty(nameof(HttpContext), connection.HttpContext);
+            requestBuilder.TryAddProperty(nameof(ClaimsPrincipal), connection.HttpContext.User);
         }
 
         public async ValueTask OnCloseAsync(ISocketConnection connection, CancellationToken cancellationToken)
